@@ -30,7 +30,7 @@
         <hr />
         <ul class="list-group">
           {% for review in template_data.reviews %}
-          <li class="list-group-item pb-3 pt-3">
+          <li class="list-group-item pb-3 pt-3" id="review-{{ review.id }}">
             <h5 class="card-title">
               Review by {{ review.user.username }}
             </h5>
@@ -47,6 +47,14 @@
               href="{% url 'movies.delete_review' id=template_data.movie.id review_id=review.id %}">
               Delete
             </a>
+            {% endif %}
+
+            {% if user.is_authenticated and user != review.user %}
+            <form class="d-inline report-form" method="post" action="{% url 'movies.report_review' id=template_data.movie.id review_id=review.id %}">
+              {% csrf_token %}
+              <input type="hidden" name="reason" value="Inappropriate" />
+              <button class="btn btn-warning report-btn" type="submit">Report</button>
+            </form>
             {% endif %}
           </li>
           {% endfor %}

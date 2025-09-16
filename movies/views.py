@@ -1,6 +1,9 @@
 from django.shortcuts import render, redirect, get_object_or_404
-from .models import Movie, Review
+from .models import Movie, Review, Report
 from django.contrib.auth.decorators import login_required
+from django.views.decorators.http import require_POST
+from django.http import JsonResponse, HttpResponseForbidden
+from django.db import transaction
 
 def index(request):
     search_term = request.GET.get('search')
@@ -16,7 +19,8 @@ def index(request):
 
 def show(request, id):
     movie = Movie.objects.get(id=id)
-    reviews = Review.objects.filter(movie=movie)
+    # only show active reviews
+    reviews = Review.objects.filter(movie=movie, is_active=True)
 
     template_data = {}
     template_data['title'] = movie.name
@@ -61,3 +65,25 @@ def delete_review(request, id, review_id):
     review = get_object_or_404(Review, id=review_id, user=request.user)
     review.delete()
     return redirect('movies.show', id=id)
+
+
+@login_required
+@require_POST
+def report_review(request, id, review_id):
+    """Allow authenticated users to report a review. The first report hides the review immediately."""
+    review = get_object_or_404(Review, id=review_id, movie__id=id)
+
+    # Prevent reporting an already-hidden review
+    if not review.is_active:
+        return JsonResponse({'status': 'already_hidden'})
+
+    # Prevent duplicate reports by same user
+    if Report.objects.filter(review=review, reporter=request.user).exists():
+        return JsonResponse({'status': 'already_reported'})
+
+    with transaction.atomic():
+        Report.objects.create(review=review, reporter=request.user, reason=request.POST.get('reason', ''))
+        # hide immediately on first report
+        review.hide()
+
+    return JsonResponse({'status': 'reported_and_hidden'})
