@@ -3,6 +3,7 @@ from .models import Movie, Review, Report
 from django.contrib.auth.decorators import login_required
 from django.views.decorators.http import require_POST
 from django.http import JsonResponse, HttpResponseForbidden
+from django.contrib import messages
 from django.db import transaction
 
 def index(request):
@@ -75,15 +76,18 @@ def report_review(request, id, review_id):
 
     # Prevent reporting an already-hidden review
     if not review.is_active:
-        return JsonResponse({'status': 'already_hidden'})
+        messages.info(request, 'This review is already hidden.')
+        return redirect('movies.show', id=id)
 
     # Prevent duplicate reports by same user
     if Report.objects.filter(review=review, reporter=request.user).exists():
-        return JsonResponse({'status': 'already_reported'})
+        messages.info(request, 'You have already reported this review.')
+        return redirect('movies.show', id=id)
 
     with transaction.atomic():
         Report.objects.create(review=review, reporter=request.user, reason=request.POST.get('reason', ''))
         # hide immediately on first report
         review.hide()
 
-    return JsonResponse({'status': 'reported_and_hidden'})
+    messages.success(request, 'Thank you — the review has been reported and removed.')
+    return redirect('movies.show', id=id)
