@@ -149,3 +149,79 @@ def petition_create(request):
     
     template_data = {'title': 'Create Movie Petition'}
     return render(request, 'movies/petition_create.html', {'template_data': template_data})
+
+
+def petition_detail(request, petition_id):
+    """Display detailed view of a single petition."""
+    petition = get_object_or_404(MoviePetition, id=petition_id, is_active=True)
+    
+    # Get user's vote if authenticated
+    user_vote = None
+    if request.user.is_authenticated:
+        vote = petition.votes.filter(voter=request.user).first()
+        user_vote = vote.vote_type if vote else None
+    
+    template_data = {
+        'title': f'Petition: {petition.title}',
+        'petition': petition,
+        'user_vote': user_vote,
+        'upvotes': petition.get_upvotes(),
+        'downvotes': petition.get_downvotes(),
+        'net_votes': petition.get_vote_count()
+    }
+    return render(request, 'movies/petition_detail.html', {'template_data': template_data})
+
+
+@login_required
+@require_POST
+def petition_vote(request, petition_id):
+    """Handle AJAX voting on petitions."""
+    petition = get_object_or_404(MoviePetition, id=petition_id, is_active=True)
+    
+    # Prevent voting on own petition
+    if petition.petitioner == request.user:
+        return JsonResponse({
+            'status': 'error',
+            'message': 'You cannot vote on your own petition.'
+        })
+    
+    vote_type_str = request.POST.get('vote_type')
+    if vote_type_str not in ['true', 'false']:
+        return JsonResponse({
+            'status': 'error',
+            'message': 'Invalid vote type.'
+        })
+    
+    vote_type = vote_type_str == 'true'
+    
+    with transaction.atomic():
+        # Get or create vote
+        vote, created = PetitionVote.objects.get_or_create(
+            petition=petition,
+            voter=request.user,
+            defaults={'vote_type': vote_type}
+        )
+        
+        if not created:
+            # User already voted, update their vote
+            if vote.vote_type == vote_type:
+                # Same vote - remove it (toggle off)
+                vote.delete()
+                action = 'removed'
+            else:
+                # Different vote - change it
+                vote.vote_type = vote_type
+                vote.save()
+                action = 'changed'
+        else:
+            action = 'added'
+    
+    # Return updated vote counts
+    return JsonResponse({
+        'status': 'success',
+        'action': action,
+        'upvotes': petition.get_upvotes(),
+        'downvotes': petition.get_downvotes(),
+        'net_votes': petition.get_vote_count(),
+        'user_vote': vote_type if action != 'removed' else None
+    })
