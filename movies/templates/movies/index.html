@@ -22,6 +22,16 @@
             </div>
           </form>
         </p>
+        
+        <!-- Movie petition call-to-action -->
+        <div class="alert alert-info d-flex align-items-center" role="alert">
+          <i class="fas fa-lightbulb me-2"></i>
+          <div>
+            Can't find the movie you're looking for? 
+            <a href="{% url 'movies.petition_create' %}" class="alert-link">Request it here</a> 
+            or browse <a href="{% url 'movies.petition_list' %}" class="alert-link">existing petitions</a>!
+          </div>
+        </div>
       </div>
     </div>
     <div class="row">
