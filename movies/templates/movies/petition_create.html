@@ -1,0 +1,100 @@
+{% extends 'base.html' %}
+
+{% block content %}
+<div class="container mt-5">
+    <div class="row justify-content-center">
+        <div class="col-md-8 col-lg-6">
+            <div class="card shadow">
+                <div class="card-body">
+                    <h1 class="card-title text-center mb-4">Request New Movie</h1>
+                    
+                    {% if messages %}
+                    <div>
+                        {% for message in messages %}
+                        <div class="alert alert-{{ message.tags }} alert-dismissible fade show" role="alert">
+                            {{ message }}
+                            <button type="button" class="btn-close" data-bs-dismiss="alert"></button>
+                        </div>
+                        {% endfor %}
+                    </div>
+                    {% endif %}
+
+                    <form method="POST" action="{% url 'movies.petition_create' %}">
+                        {% csrf_token %}
+                        
+                        <div class="mb-3">
+                            <label for="title" class="form-label">Movie Title *</label>
+                            <input type="text" 
+                                   class="form-control" 
+                                   id="title" 
+                                   name="title" 
+                                   required 
+                                   maxlength="255"
+                                   placeholder="Enter the movie title"
+                                   value="{{ form_data.title|default:'' }}">
+                            <div class="form-text">The name of the movie you'd like to see added</div>
+                        </div>
+
+                        <div class="mb-3">
+                            <label for="description" class="form-label">Why should this movie be added? *</label>
+                            <textarea class="form-control" 
+                                      id="description" 
+                                      name="description" 
+                                      rows="4" 
+                                      required 
+                                      placeholder="Explain why this movie would be a great addition to our catalog...">{{ form_data.description|default:'' }}</textarea>
+                            <div class="form-text">Help others understand why this movie deserves to be in our store</div>
+                        </div>
+
+                        <div class="alert alert-info">
+                            <i class="fas fa-info-circle"></i>
+                            <strong>How it works:</strong> Once you submit your petition, other users can vote on it. 
+                            Popular petitions will be reviewed by our team for potential addition to the catalog.
+                        </div>
+
+                        <div class="d-grid gap-2 d-md-flex justify-content-md-end">
+                            <a href="{% url 'movies.petition_list' %}" class="btn btn-secondary me-md-2">
+                                Cancel
+                            </a>
+                            <button type="submit" class="btn btn-primary">
+                                <i class="fas fa-paper-plane"></i> Submit Petition
+                            </button>
+                        </div>
+                    </form>
+                </div>
+            </div>
+
+            <div class="mt-4 text-center">
+                <p class="text-muted">
+                    <i class="fas fa-users"></i>
+                    Already have an account? Great! 
+                    <a href="{% url 'movies.petition_list' %}">View all petitions</a>
+                </p>
+            </div>
+        </div>
+    </div>
+</div>
+
+<script>
+document.addEventListener('DOMContentLoaded', function() {
+    const titleInput = document.getElementById('title');
+    const descriptionInput = document.getElementById('description');
+    
+    // Add character counter for title
+    titleInput.addEventListener('input', function() {
+        const remaining = 255 - this.value.length;
+        let helpText = this.parentElement.querySelector('.form-text');
+        if (remaining < 50) {
+            helpText.innerHTML = `The name of the movie you'd like to see added (${remaining} characters remaining)`;
+            helpText.className = remaining < 20 ? 'form-text text-warning' : 'form-text';
+        }
+    });
+    
+    // Auto-resize textarea
+    descriptionInput.addEventListener('input', function() {
+        this.style.height = 'auto';
+        this.style.height = this.scrollHeight + 'px';
+    });
+});
+</script>
+{% endblock content %}
