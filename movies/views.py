@@ -1,10 +1,11 @@
 from django.shortcuts import render, redirect, get_object_or_404
-from .models import Movie, Review, Report
+from .models import Movie, Review, Report, MoviePetition, PetitionVote
 from django.contrib.auth.decorators import login_required
 from django.views.decorators.http import require_POST
 from django.http import JsonResponse, HttpResponseForbidden
 from django.contrib import messages
 from django.db import transaction
+from django.db.models import Count
 
 def index(request):
     search_term = request.GET.get('search')
@@ -91,3 +92,60 @@ def report_review(request, id, review_id):
 
     messages.success(request, 'Thank you — the review has been reported and removed.')
     return redirect('movies.show', id=id)
+
+
+# Movie Petition Views
+
+def petition_list(request):
+    """Display all active movie petitions ordered by vote count."""
+    petitions = MoviePetition.objects.filter(is_active=True).annotate(
+        vote_count=Count('votes')
+    ).order_by('-vote_count', '-created_at')
+    
+    # Add vote info for each petition if user is authenticated
+    if request.user.is_authenticated:
+        for petition in petitions:
+            user_vote = petition.votes.filter(voter=request.user).first()
+            petition.user_vote = user_vote.vote_type if user_vote else None
+    
+    template_data = {
+        'title': 'Movie Petitions',
+        'petitions': petitions
+    }
+    return render(request, 'movies/petition_list.html', {'template_data': template_data})
+
+
+@login_required
+def petition_create(request):
+    """Allow authenticated users to create new movie petitions."""
+    if request.method == 'POST':
+        title = request.POST.get('title', '').strip()
+        description = request.POST.get('description', '').strip()
+        
+        if title and description:
+            # Check if user already has a petition with similar title
+            existing = MoviePetition.objects.filter(
+                petitioner=request.user,
+                title__icontains=title,
+                is_active=True
+            ).exists()
+            
+            if existing:
+                messages.warning(request, 'You already have a similar petition active.')
+                return render(request, 'movies/petition_create.html', {
+                    'template_data': {'title': 'Create Movie Petition'},
+                    'form_data': {'title': title, 'description': description}
+                })
+            
+            petition = MoviePetition.objects.create(
+                title=title,
+                description=description,
+                petitioner=request.user
+            )
+            messages.success(request, f'Your petition for "{title}" has been created!')
+            return redirect('movies.petition_list')
+        else:
+            messages.error(request, 'Please provide both a title and description.')
+    
+    template_data = {'title': 'Create Movie Petition'}
+    return render(request, 'movies/petition_create.html', {'template_data': template_data})
