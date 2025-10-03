@@ -11,7 +11,7 @@
     <meta name="viewport" content="width=device-width, initial-scale=1" />
   </head>
 
-  <body>
+  <body class="d-flex flex-column min-vh-100">
     <!-- Header -->
     <nav class="p-3 navbar navbar-dark bg-dark navbar-expand-lg">
       <div class="container">
@@ -41,10 +41,10 @@
     </nav>
     <!-- Header -->
 
-    <div>
+    <main class="flex-grow-1">
       {% block content %}
       {% endblock content %}
-    </div>
+    </main>
 
     <!-- Footer -->
     <section class="p-3 ms-footer d-none d-md-block">
