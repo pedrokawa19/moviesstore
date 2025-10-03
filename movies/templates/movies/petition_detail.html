@@ -1,0 +1,232 @@
+{% extends 'base.html' %}
+
+{% block content %}
+<div class="container mt-5">
+    <div class="row justify-content-center">
+        <div class="col-md-8">
+            <!-- Back navigation -->
+            <div class="mb-3">
+                <a href="{% url 'movies.petition_list' %}" class="btn btn-outline-secondary">
+                    <i class="fas fa-arrow-left"></i> Back to All Petitions
+                </a>
+            </div>
+
+            <!-- Main petition card -->
+            <div class="card shadow">
+                <div class="card-body">
+                    <div class="d-flex justify-content-between align-items-start mb-3">
+                        <h1 class="card-title">{{ template_data.petition.title }}</h1>
+                        <div class="vote-summary text-center">
+                            <div class="h4 mb-1" id="net-votes">
+                                <span class="badge bg-primary">{{ template_data.net_votes }}</span>
+                            </div>
+                            <small class="text-muted">Net Votes</small>
+                        </div>
+                    </div>
+
+                    <div class="mb-3">
+                        <small class="text-muted">
+                            <i class="fas fa-user"></i> Requested by 
+                            <strong>{{ template_data.petition.petitioner.username }}</strong>
+                            on {{ template_data.petition.created_at|date:"F j, Y" }}
+                        </small>
+                    </div>
+
+                    <div class="mb-4">
+                        <h5>Why this movie should be added:</h5>
+                        <p class="lead">{{ template_data.petition.description|linebreaks }}</p>
+                    </div>
+
+                    <!-- Voting section -->
+                    <div class="card bg-light">
+                        <div class="card-body">
+                            <div class="row align-items-center">
+                                <div class="col-md-6">
+                                    <div class="d-flex justify-content-around">
+                                        <div class="text-center">
+                                            <div class="h5 text-success mb-1" id="upvote-count">
+                                                {{ template_data.upvotes }}
+                                            </div>
+                                            <small class="text-muted">
+                                                <i class="fas fa-thumbs-up"></i> Upvotes
+                                            </small>
+                                        </div>
+                                        <div class="text-center">
+                                            <div class="h5 text-danger mb-1" id="downvote-count">
+                                                {{ template_data.downvotes }}
+                                            </div>
+                                            <small class="text-muted">
+                                                <i class="fas fa-thumbs-down"></i> Downvotes
+                                            </small>
+                                        </div>
+                                    </div>
+                                </div>
+                                
+                                <div class="col-md-6 text-center">
+                                    {% if user.is_authenticated %}
+                                        {% if user == template_data.petition.petitioner %}
+                                            <p class="text-muted mb-0">
+                                                <i class="fas fa-info-circle"></i>
+                                                This is your petition
+                                            </p>
+                                        {% else %}
+                                            <div class="btn-group" role="group" id="vote-buttons">
+                                                <button type="button" 
+                                                        class="btn btn-outline-success vote-btn" 
+                                                        data-vote-type="true"
+                                                        {% if template_data.user_vote is True %}disabled{% endif %}>
+                                                    <i class="fas fa-thumbs-up"></i> 
+                                                    {% if template_data.user_vote is True %}Voted{% else %}Upvote{% endif %}
+                                                </button>
+                                                <button type="button" 
+                                                        class="btn btn-outline-danger vote-btn" 
+                                                        data-vote-type="false"
+                                                        {% if template_data.user_vote is False %}disabled{% endif %}>
+                                                    <i class="fas fa-thumbs-down"></i> 
+                                                    {% if template_data.user_vote is False %}Voted{% else %}Downvote{% endif %}
+                                                </button>
+                                            </div>
+                                            <div class="mt-2">
+                                                <small class="text-muted">Click again to remove your vote</small>
+                                            </div>
+                                        {% endif %}
+                                    {% else %}
+                                        <p class="text-muted mb-2">
+                                            <i class="fas fa-sign-in-alt"></i>
+                                            <a href="{% url 'accounts.login' %}">Login</a> to vote on this petition
+                                        </p>
+                                    {% endif %}
+                                </div>
+                            </div>
+                        </div>
+                    </div>
+
+                    <!-- Admin info (if applicable) -->
+                    {% if template_data.petition.admin_reviewed %}
+                    <div class="alert alert-info mt-3">
+                        <i class="fas fa-check-circle"></i>
+                        This petition has been reviewed by our team.
+                    </div>
+                    {% endif %}
+                </div>
+            </div>
+
+            <!-- Tips for users -->
+            <div class="card mt-4">
+                <div class="card-body">
+                    <h5 class="card-title">
+                        <i class="fas fa-lightbulb"></i> How Movie Petitions Work
+                    </h5>
+                    <ul class="mb-0">
+                        <li>Users can vote on petitions to show support or opposition</li>
+                        <li>Popular petitions (with high net positive votes) are prioritized for review</li>
+                        <li>Our team regularly reviews highly-voted petitions for addition to the catalog</li>
+                        <li>You can change or remove your vote at any time</li>
+                    </ul>
+                </div>
+            </div>
+        </div>
+    </div>
+</div>
+
+<script>
+document.addEventListener('DOMContentLoaded', function() {
+    const voteButtons = document.querySelectorAll('.vote-btn');
+    const upvoteCount = document.getElementById('upvote-count');
+    const downvoteCount = document.getElementById('downvote-count');
+    const netVotes = document.getElementById('net-votes');
+    
+    voteButtons.forEach(button => {
+        button.addEventListener('click', function() {
+            const voteType = this.dataset.voteType === 'true';
+            const petitionId = parseInt('{{ template_data.petition.id }}');
+            
+            // Disable buttons during request
+            voteButtons.forEach(btn => btn.disabled = true);
+            
+            // Prepare form data
+            const formData = new FormData();
+            formData.append('vote_type', voteType);
+            formData.append('csrfmiddlewaretoken', '{{ csrf_token }}');
+            
+            fetch(`/movies/petitions/${petitionId}/vote/`, {
+                method: 'POST',
+                body: formData,
+                headers: {
+                    'X-Requested-With': 'XMLHttpRequest'
+                }
+            })
+            .then(response => response.json())
+            .then(data => {
+                if (data.status === 'success') {
+                    // Update vote counts
+                    upvoteCount.textContent = data.upvotes;
+                    downvoteCount.textContent = data.downvotes;
+                    netVotes.innerHTML = `<span class="badge bg-primary">${data.net_votes}</span>`;
+                    
+                    // Update button states
+                    voteButtons.forEach(btn => {
+                        btn.disabled = false;
+                        const btnVoteType = btn.dataset.voteType === 'true';
+                        
+                        if (data.user_vote === null) {
+                            // No vote
+                            btn.disabled = false;
+                            btn.innerHTML = btnVoteType ? 
+                                '<i class="fas fa-thumbs-up"></i> Upvote' : 
+                                '<i class="fas fa-thumbs-down"></i> Downvote';
+                        } else if (data.user_vote === btnVoteType) {
+                            // This button represents user's current vote
+                            btn.disabled = false; // Allow toggle off
+                            btn.innerHTML = btnVoteType ? 
+                                '<i class="fas fa-thumbs-up"></i> Voted' : 
+                                '<i class="fas fa-thumbs-down"></i> Voted';
+                        } else {
+                            // Other button
+                            btn.disabled = false;
+                            btn.innerHTML = btnVoteType ? 
+                                '<i class="fas fa-thumbs-up"></i> Upvote' : 
+                                '<i class="fas fa-thumbs-down"></i> Downvote';
+                        }
+                    });
+                    
+                    // Show feedback message
+                    showMessage(data.action === 'removed' ? 'Vote removed' : 'Vote recorded!', 'success');
+                } else {
+                    showMessage(data.message || 'Error voting', 'danger');
+                    // Re-enable buttons
+                    voteButtons.forEach(btn => btn.disabled = false);
+                }
+            })
+            .catch(error => {
+                console.error('Error:', error);
+                showMessage('Network error. Please try again.', 'danger');
+                // Re-enable buttons
+                voteButtons.forEach(btn => btn.disabled = false);
+            });
+        });
+    });
+    
+    function showMessage(message, type) {
+        // Create and show temporary alert
+        const alertDiv = document.createElement('div');
+        alertDiv.className = `alert alert-${type} alert-dismissible fade show`;
+        alertDiv.innerHTML = `
+            ${message}
+            <button type="button" class="btn-close" data-bs-dismiss="alert"></button>
+        `;
+        
+        // Insert at top of main container
+        const container = document.querySelector('.container');
+        container.insertBefore(alertDiv, container.firstChild);
+        
+        // Auto-dismiss after 3 seconds
+        setTimeout(() => {
+            if (alertDiv.parentNode) {
+                alertDiv.remove();
+            }
+        }, 3000);
+    }
+});
+</script>
+{% endblock content %}
