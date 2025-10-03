@@ -202,19 +202,24 @@ def petition_vote(request, petition_id):
             defaults={'vote_type': vote_type}
         )
         
+        current_user_vote = None
+        
         if not created:
             # User already voted, update their vote
             if vote.vote_type == vote_type:
                 # Same vote - remove it (toggle off)
                 vote.delete()
                 action = 'removed'
+                current_user_vote = None
             else:
                 # Different vote - change it
                 vote.vote_type = vote_type
                 vote.save()
                 action = 'changed'
+                current_user_vote = vote_type
         else:
             action = 'added'
+            current_user_vote = vote_type
     
     # Return updated vote counts
     return JsonResponse({
@@ -223,5 +228,5 @@ def petition_vote(request, petition_id):
         'upvotes': petition.get_upvotes(),
         'downvotes': petition.get_downvotes(),
         'net_votes': petition.get_vote_count(),
-        'user_vote': vote_type if action != 'removed' else None
+        'user_vote': current_user_vote
     })

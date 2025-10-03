@@ -136,18 +136,26 @@ document.addEventListener('DOMContentLoaded', function() {
     const downvoteCount = document.getElementById('downvote-count');
     const netVotes = document.getElementById('net-votes');
     
+    console.log('Vote buttons found:', voteButtons.length);
+    
     voteButtons.forEach(button => {
         button.addEventListener('click', function() {
-            const voteType = this.dataset.voteType === 'true';
+            console.log('Vote button clicked:', this.dataset.voteType);
+            
+            const voteType = this.dataset.voteType; // Keep as string 'true' or 'false'
             const petitionId = parseInt('{{ template_data.petition.id }}');
+            
+            console.log('Vote type:', voteType, 'Petition ID:', petitionId);
             
             // Disable buttons during request
             voteButtons.forEach(btn => btn.disabled = true);
             
             // Prepare form data
             const formData = new FormData();
-            formData.append('vote_type', voteType);
+            formData.append('vote_type', voteType); // Send string directly
             formData.append('csrfmiddlewaretoken', '{{ csrf_token }}');
+            
+            console.log('Sending vote request to:', `/movies/petitions/${petitionId}/vote/`);
             
             fetch(`/movies/petitions/${petitionId}/vote/`, {
                 method: 'POST',
@@ -156,8 +164,15 @@ document.addEventListener('DOMContentLoaded', function() {
                     'X-Requested-With': 'XMLHttpRequest'
                 }
             })
-            .then(response => response.json())
+            .then(response => {
+                console.log('Response status:', response.status);
+                if (!response.ok) {
+                    throw new Error(`HTTP ${response.status}`);
+                }
+                return response.json();
+            })
             .then(data => {
+                console.log('Response data:', data);
                 if (data.status === 'success') {
                     // Update vote counts
                     upvoteCount.textContent = data.upvotes;
@@ -193,13 +208,14 @@ document.addEventListener('DOMContentLoaded', function() {
                     // Show feedback message
                     showMessage(data.action === 'removed' ? 'Vote removed' : 'Vote recorded!', 'success');
                 } else {
+                    console.error('Server error:', data);
                     showMessage(data.message || 'Error voting', 'danger');
                     // Re-enable buttons
                     voteButtons.forEach(btn => btn.disabled = false);
                 }
             })
             .catch(error => {
-                console.error('Error:', error);
+                console.error('Fetch error:', error);
                 showMessage('Network error. Please try again.', 'danger');
                 // Re-enable buttons
                 voteButtons.forEach(btn => btn.disabled = false);
